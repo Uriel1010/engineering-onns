@@ -1,1 +1,0 @@
-[['תאריך', 'שעה', 'תאור'], ['07/02/23', '00:25', 'Shipment received in cheetah systems (not arrive in israel)'], ['06/02/23', '21:46', 'Shipment received in cheetah systems (not arrive in israel)']]
