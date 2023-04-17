@@ -7,7 +7,7 @@ def reservoir_system(x, s, eps, beta, mu, phi_0, s_history, x_history):
     # get previous state at s-1 using interpolation
     s_i = len(s_history)
     if s_i > 1:
-        prev_x = np.interp(s_i - 1, s_history, x_history, left=0.0, right=0.0)
+        prev_x = np.interp(s - 1, s_history, x_history, left=0.0, right=0.0)
     else:
         prev_x = x_history[0]
 
