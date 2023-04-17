@@ -54,7 +54,7 @@ plt.plot(s, x)
 plt.xlabel('s')
 plt.ylabel('x')
 plt.title(
-    'Reservoir Computing without External Signal\n'
+    'Reservoir Dynamics without External Signal\n'
     fr'($\beta$={beta}, $\mu$={mu}, $\Phi_0$={phi_0:.2f})'
 )
 plt.show()
