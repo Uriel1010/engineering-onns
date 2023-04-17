@@ -1,9 +1,9 @@
 import numpy as np
-from scipy.integrate import odeint
+from scipy import integrate as spode
 import matplotlib.pyplot as plt
 
 
-def reservoir_system(x, s, eps, beta, mu, phi_0, s_history, x_history):
+def reservoir_system(s, x, eps, beta, mu, phi_0, rho, u, s_history, x_history):
     # get previous state at s-1 using interpolation
     s_i = len(s_history)
     if s_i > 1:
@@ -11,7 +11,7 @@ def reservoir_system(x, s, eps, beta, mu, phi_0, s_history, x_history):
     else:
         prev_x = x_history[0]
 
-    dxds = (-x + beta * np.sin(mu * prev_x + phi_0) ** 2) / eps
+    dxds = (-x + beta * np.sin(mu * prev_x + rho * u(s - 1) + phi_0) ** 2) / eps
 
     # append current state to history
     x_history.append(x[0])
@@ -20,7 +20,7 @@ def reservoir_system(x, s, eps, beta, mu, phi_0, s_history, x_history):
     return dxds
 
 
-def u(t):
+def u(s):
     # define the input signal here
     return 0.0
 
@@ -41,16 +41,20 @@ mu = 2.5  # feedback scaling
 rho = 0.0  # relative weight of input information compared to feedback signal
 phi_0 = np.pi * 0.89  # offset phase of the MZM
 
-s = np.linspace(0, 5, 1000)
-ds = s[1] - s[0]
-t = s * tau_d
+s_eval = np.linspace(0, 10, 1000)
+ds = s_eval[1] - s_eval[0]
+t_eval = s_eval * tau_d
 
 # integrate the system over time
-x = odeint(reservoir_system, x0, s,
-           args=(eps, beta, mu, phi_0, s_history, x_history))
+sol = spode.solve_ivp(
+    reservoir_system, t_span=s_eval[[0, -1]], t_eval=s_eval, y0=[x0],
+    args=(eps, beta, mu, phi_0, rho, u, s_history, x_history),
+    method='RK23'
+)
 
 # plot the results
-plt.plot(s, x)
+fig, ax = plt.subplots(figsize=(5, 3), layout='tight')
+plt.plot(sol.t, sol.y[0])
 plt.xlabel('s')
 plt.ylabel('x')
 plt.title(
