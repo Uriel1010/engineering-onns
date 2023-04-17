@@ -24,6 +24,14 @@ def u(s):
     # define the input signal here
     return 0.0
 
+def u_delta(s, t_0=5):
+    return 1.0 if np.abs(s - t_0) < ds else 0.0
+
+def u_sin(s, omega=2*np.pi):
+    return np.sin(omega * s)
+
+def u_step(s, t_0=5):
+    return 1.0 if s > t_0 else 0.0
 
 # calculate time values based on delay time
 tau_d = 20.87E-6  # delay time
@@ -45,6 +53,21 @@ s_eval = np.linspace(0, 10, 1000)
 ds = s_eval[1] - s_eval[0]
 t_eval = s_eval * tau_d
 
+
+def initial_value_problem(tau_d, Tr, beta, mu, phi_0, rho, u):
+    # initialize history arrays
+    s_history = [0.0]
+    x0 = 0
+    x_history = [x0]
+    eps = Tr / tau_d
+
+    return spode.solve_ivp(
+        reservoir_system, t_span=s_eval[[0, -1]], t_eval=s_eval, y0=[x0],
+        args=(eps, beta, mu, phi_0, rho, u, s_history, x_history),
+        method='RK23'
+    )
+
+
 # integrate the system over time
 sol = spode.solve_ivp(
     reservoir_system, t_span=s_eval[[0, -1]], t_eval=s_eval, y0=[x0],
@@ -62,3 +85,6 @@ plt.title(
     fr'($\beta$={beta}, $\mu$={mu}, $\Phi_0$={phi_0:.2f})'
 )
 plt.show()
+
+if __name__ == "__main__":
+    pass
