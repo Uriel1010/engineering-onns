@@ -1,5 +1,7 @@
 import numpy as np
 from scipy import integrate as spode
+from scipy.io import wavfile
+from scipy import interpolate as spint
 import matplotlib.pyplot as plt
 
 
@@ -11,7 +13,7 @@ def reservoir_system(s, x, eps, beta, mu, phi_0, rho, u, s_history, x_history):
     else:
         prev_x = x_history[0]
 
-    dxds = (-x + beta * np.sin(mu * prev_x + rho * u(s - 1) + phi_0) ** 2) / eps
+    dxds = (-x + beta * np.sin(mu * prev_x + rho * float(u(s - 1)) + phi_0) ** 2) / eps
 
     # append current state to history
     x_history.append(x[0])
@@ -32,6 +34,17 @@ def u_sin(s, omega=2*np.pi):
 
 def u_step(s, t_0=5):
     return 1.0 if s > t_0 else 0.0
+
+def interpolate_audio(fname):
+    # TODO: load audio and create interp object
+    samplerate, data = wavfile.read(fname)
+    s = np.linspace(0, 1, data[::100].shape[0])
+    interp_obj = spint.interp1d(s, data[::100], bounds_error=False, fill_value=0)
+    # func = func(s)
+    return interp_obj
+
+
+u_signal = interpolate_audio('./free-spoken-digit-dataset/test.wav')
 
 # calculate time values based on delay time
 tau_d = 20.87E-6  # delay time
