@@ -1,3 +1,5 @@
+import functools
+
 import numpy as np
 from scipy import integrate as spode
 from scipy.io import wavfile
@@ -79,16 +81,25 @@ def u_step(s, t_0=5):
     return 1.0 if s > t_0 else 0.0
 
 
-def interpolate_audio(fname, s_start=-1, theta=0.01):
+def interpolate_audio(fname):
     samplerate, data = wavfile.read(fname)
     data = data / np.max(np.abs(data))
     ndata = data.shape[0]
-    s = s_start + np.cumsum(np.ones(ndata) * theta) - theta
+    s = np.arange(0, ndata)
     interp_obj = spint.interp1d(
-        s, data, kind='nearest',
+        s, data, kind='linear',
         bounds_error=False, fill_value=0
     )
     return interp_obj
+
+
+def sample_and_hold(fun):
+    @functools.wraps(fun)
+    def wrapped(s):
+        i = np.array(s, dtype=int)
+        return fun(i)
+
+    return wrapped
 
 
 if __name__ == "__main__":
@@ -109,19 +120,13 @@ if __name__ == "__main__":
     # Solve without external signal to reach equilibrium state
     x0 = 0
     eq.u = None
-    sol = eq.solve_ivp(x0, 5, nsamples=1000, method='RK23')
+    sol = eq.solve_ivp(x0, 10, nsamples=2, method='RK23')
     x0 = sol.y[0, -1]
 
-    # plot the results
-    ds = np.linspace(eps / 100, 10 * eq.eps, 100)
-    smax = np.logspace(-3, 3, 100) * eq.eps
-    nsamples = [1000, 5000, 10000]
-
-    eq.u = interpolate_audio(
+    eq.u = sample_and_hold(interpolate_audio(
         './free-spoken-digit-dataset/test.wav',
-        theta=eps / 4.6
-    )
-    eq.solve_ivp(x0, 20, nsamples=10000, method='RK23')
+    ))
+    eq.solve_ivp(x0, 50, nsamples=1000, method='RK23')
     eq.plot_solution()
     plt.show()
 
