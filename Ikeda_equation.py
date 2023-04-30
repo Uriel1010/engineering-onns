@@ -5,25 +5,66 @@ from scipy import interpolate as spint
 import matplotlib.pyplot as plt
 
 
-def reservoir(s, x, eps, beta, mu, phi_0, rho, u):
-    global x_history
-    global s_history
+class IkedaEquation:
+    def __init__(self, eps, beta, mu, phi_0, rho):
+        self.eps = eps
+        self.beta = beta
+        self.mu = mu
+        self.phi_0 = phi_0
+        self.rho = rho
+        self.x_history = None
+        self.s_history = None
+        self.u = None
+        self.sol = None
 
-    # get previous state at s-1 using interpolation
-    s_i = len(s_history)
-    if s_i > 1:
-        prev_x = np.interp(s - 1, s_history, x_history, left=0.0, right=0.0)
-    else:
-        prev_x = x_history[0]
+    def derivative(self, s, x):
+        if len(self.s_history > 1):
+            prev_x = np.interp(s - 1, self.s_history, self.x_history, left=self.x_history[0], right=0.0)
+        else:
+            prev_x = self.x_history[0]
 
-    dxds = \
-        (-x + beta * np.sin(mu * prev_x + rho * u(s - 1) + phi_0) ** 2) / eps
+        if self.u:
+            u = self.u
+        else:
+            u = lambda s: 0
 
-    # append current state to history
-    x_history = np.r_[x_history, x[0]]
-    s_history = np.r_[s_history, s]
+        dxds = (
+            -x + self.beta * np.sin(self.mu * prev_x + self.rho * u(s - 1) + self.phi_0) ** 2
+        ) / self.eps
 
-    return dxds
+        # append current state to history
+        self.x_history = np.r_[self.x_history, x[0]]
+        self.s_history = np.r_[self.s_history, s]
+
+        return dxds
+
+    def solve_ivp(self, x0, smax, nsamples=5000, method='RK45'):
+        self.s_history = np.array([0.0])
+        self.x_history = np.array([x0])
+        s_eval = np.linspace(0, smax, nsamples)
+        self.sol = spode.solve_ivp(
+            self.derivative, t_span=s_eval[[0, -1]], t_eval=s_eval, y0=[x0],
+            method=method
+        )
+        return self.sol
+
+    def plot_solution(self, ax=None):
+        # plot the results
+        if not ax:
+            fig, ax = plt.subplots(figsize=(5, 3), layout='tight')
+        else:
+            fig = ax.gcf()
+        if self.u:
+            ax.plot(self.sol.t, self.u(self.sol.t), label='$u(s)$', color='r')
+        ax.plot(self.sol.t, self.sol.y[0], label='$x(s)$', color='k')
+        ax.set_xlabel('s')
+        ax.set_title(
+            'Reservoir Dynamics\n'
+            fr'($\epsilon$={self.eps:.2f}, $\beta$={self.beta}, $\mu$={self.mu},'
+            fr' $\rho$={self.rho}, $\Phi_0$={self.phi_0:.2f})'
+        )
+        ax.legend()
+        return fig, ax
 
 
 def u_delta(s, t_0=5):
@@ -38,33 +79,16 @@ def u_step(s, t_0=5):
     return 1.0 if s > t_0 else 0.0
 
 
-def interpolate_audio(fname, s_start=-1, s_end=0, decim=1):
-    # TODO: load audio and create interp object
+def interpolate_audio(fname, s_start=-1, theta=0.01):
     samplerate, data = wavfile.read(fname)
     data = data / np.max(np.abs(data))
-    s = np.linspace(s_start, s_end, data[::decim].shape[0])
+    ndata = data.shape[0]
+    s = s_start + np.cumsum(np.ones(ndata) * theta) - theta
     interp_obj = spint.interp1d(
-        s, data[::decim], kind='linear',
+        s, data, kind='nearest',
         bounds_error=False, fill_value=0
     )
     return interp_obj
-
-
-def initial_value_problem(tau_d, Tr, beta, mu, phi_0, rho, u, smax):
-    global s_history
-    global x_history
-    # initialize history arrays
-    s_history = [0.0]
-    x_history = [0.0]
-    x0 = 0
-    eps = Tr / tau_d
-    s_eval = np.linspace(0, smax, 5000)
-
-    return spode.solve_ivp(
-        reservoir, t_span=s_eval[[0, -1]], t_eval=s_eval, y0=[x0],
-        args=(eps, beta, mu, phi_0, rho, u),
-        method='RK45'
-    )
 
 
 if __name__ == "__main__":
@@ -74,43 +98,30 @@ if __name__ == "__main__":
     Tr = 240e-9
     eps = Tr / tau_d
 
-    # initialize history arrays
-    s_history = [0.0]
-    x0 = 0
-    x_history = [x0]
-
     # set parameter values
     beta = 1.5  # nonlinearity gain
     mu = 1  # feedback scaling
     rho = 0.5  # relative weight of input information compared to feedback signal
     phi_0 = np.pi * 0.89  # offset phase of the MZM
 
-    s_eval = np.linspace(0, 10, 5000)
-    ds = s_eval[1] - s_eval[0]
-    t_eval = s_eval * tau_d
+    eq = IkedaEquation(eps, beta, mu, phi_0, rho)
 
-    u_audio = interpolate_audio(
-        './free-spoken-digit-dataset/test.wav',
-    )
-
-    u = u_audio
-    # integrate the system over time
-    sol = spode.solve_ivp(
-        reservoir, t_span=s_eval[[0, -1]], t_eval=s_eval, y0=[x0],
-        args=(eps, beta, mu, phi_0, rho, u),
-        method='RK45'
-    )
+    # Solve without external signal to reach equilibrium state
+    x0 = 0
+    eq.u = None
+    sol = eq.solve_ivp(x0, 5, nsamples=1000, method='RK23')
+    x0 = sol.y[0, -1]
 
     # plot the results
-    fig, ax = plt.subplots(figsize=(5, 3), layout='tight')
-    plt.plot(sol.t, sol.y[0], label='$x(s)$')
-    plt.plot(sol.t, u(s_eval - 1), label='$u(s - 1)$')
-    plt.xlabel('s')
-    plt.ylabel('x')
-    plt.title(
-        'Reservoir Dynamics without External Signal\n'
-        fr'($\beta$={beta}, $\mu$={mu}, $\rho$={rho}, $\Phi_0$={phi_0:.2f})'
+    ds = np.linspace(eps / 100, 10 * eq.eps, 100)
+    smax = np.logspace(-3, 3, 100) * eq.eps
+    nsamples = [1000, 5000, 10000]
+
+    eq.u = interpolate_audio(
+        './free-spoken-digit-dataset/test.wav',
+        theta=eps / 4.6
     )
-    plt.legend()
+    eq.solve_ivp(x0, 20, nsamples=10000, method='RK23')
+    eq.plot_solution()
     plt.show()
 
