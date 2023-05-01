@@ -1,90 +1,141 @@
+import functools
+
 import numpy as np
 from scipy import integrate as spode
+from scipy.io import wavfile
+from scipy import interpolate as spint
 import matplotlib.pyplot as plt
 
 
-def reservoir_system(s, x, eps, beta, mu, phi_0, rho, u, s_history, x_history):
-    # get previous state at s-1 using interpolation
-    s_i = len(s_history)
-    if s_i > 1:
-        prev_x = np.interp(s - 1, s_history, x_history, left=0.0, right=0.0)
-    else:
-        prev_x = x_history[0]
+class IkedaEquation:
+    def __init__(self, eps, beta, mu, phi_0, rho, N):
+        self.eps = eps
+        self.beta = beta
+        self.mu = mu
+        self.phi_0 = phi_0
+        self.rho = rho
+        self.x_history = None
+        self.s_history = None
+        self.u = np.array([0])
+        self.N = N
+        np.random.seed(42)
+        self.mask = 1 - 2 * np.random.randint(2, size=(N,))
+        self.sol = None
 
-    dxds = (-x + beta * np.sin(mu * prev_x + rho * u(s - 1) + phi_0) ** 2) / eps
+    def derivative(self, s, x):
+        prev_x = np.interp(s - 1, self.s_history, self.x_history, left=self.x_history[0], right=0.0)
 
-    # append current state to history
-    x_history.append(x[0])
-    s_history.append(s)
+        dxds = (
+            -x
+            + self.beta * np.sin(
+                self.mu * prev_x
+                + self.rho * self.J(s - 1)
+                + self.phi_0
+            ) ** 2
+        ) / self.eps
 
-    return dxds
+        # append current state to history
+        self.x_history = np.r_[self.x_history[1:], x[0]]
+        self.s_history = np.r_[self.s_history[1:], s]
+        return dxds
 
+    def I(self, s):
+        i = np.array(np.atleast_1d(s), dtype=int)
+        res = np.zeros(i.shape, dtype=np.double)
+        idx = np.logical_and(i >= 0, i < self.Q)
+        res[idx] = self.u[i[idx]]
+        return res
 
-def u(s):
-    # define the input signal here
-    return 0.0
+    def J(self, s):
+        i = np.array((s % 1) * self.N, dtype=int)
+        return self.mask[i] * self.I(s)
+
+    @property
+    def Q(self):
+        return self.u.shape[0]
+
+    def solve_ivp(self, x0, s_eval, method='RK45'):
+        self.s_history = np.linspace(-1, 0, self.N)
+        self.x_history = x0 * np.ones(self.N)
+        self.sol = spode.solve_ivp(
+            self.derivative, t_span=[0, s_eval[-1]], t_eval=s_eval, y0=[x0],
+            method=method
+        )
+        return self.sol
+
+    def plot_solution(self, ax=None, J=True, I=False):
+        # plot the results
+        if not ax:
+            fig, ax = plt.subplots(figsize=(5, 3), layout='tight')
+        else:
+            fig = ax.gcf()
+        if I:
+            ax.plot(self.sol.t, self.I(self.sol.t), label='$I(s)$', color='r')
+        if J:
+            ax.plot(self.sol.t, self.rho * self.J(self.sol.t), label=r'$\rho J(s)$', color='g')
+        ax.plot(self.sol.t, self.sol.y[0], label='$x(s)$', color='k')
+        ax.set_xlabel('s')
+        ax.set_title(
+            'Reservoir Dynamics\n'
+            fr'($\epsilon$={self.eps:.2f}, $\beta$={self.beta}, $\mu$={self.mu},'
+            fr' $\rho$={self.rho}, $\Phi_0$={self.phi_0:.2f})'
+        )
+        ax.legend()
+        return fig, ax
+
 
 def u_delta(s, t_0=5):
     return 1.0 if np.abs(s - t_0) < ds else 0.0
 
+
 def u_sin(s, omega=2*np.pi):
     return np.sin(omega * s)
+
 
 def u_step(s, t_0=5):
     return 1.0 if s > t_0 else 0.0
 
-# calculate time values based on delay time
-tau_d = 20.87E-6  # delay time
-Tr = 240e-9
-eps = Tr / tau_d
 
-# initialize history arrays
-s_history = [0.0]
-x0 = 0
-x_history = [x0]
-
-# set parameter values
-beta = 0.3  # nonlinearity gain
-mu = 2.5  # feedback scaling
-rho = 0.0  # relative weight of input information compared to feedback signal
-phi_0 = np.pi * 0.89  # offset phase of the MZM
-
-s_eval = np.linspace(0, 10, 1000)
-ds = s_eval[1] - s_eval[0]
-t_eval = s_eval * tau_d
-
-
-def initial_value_problem(tau_d, Tr, beta, mu, phi_0, rho, u):
-    # initialize history arrays
-    s_history = [0.0]
-    x0 = 0
-    x_history = [x0]
-    eps = Tr / tau_d
-
-    return spode.solve_ivp(
-        reservoir_system, t_span=s_eval[[0, -1]], t_eval=s_eval, y0=[x0],
-        args=(eps, beta, mu, phi_0, rho, u, s_history, x_history),
-        method='RK23'
+def interpolate_audio(fname):
+    samplerate, data = wavfile.read(fname)
+    data = data / np.max(np.abs(data))
+    ndata = data.shape[0]
+    s = np.arange(0, ndata)
+    interp_obj = spint.interp1d(
+        s, data, kind='linear',
+        bounds_error=False, fill_value=0
     )
+    return interp_obj
 
 
-# integrate the system over time
-sol = spode.solve_ivp(
-    reservoir_system, t_span=s_eval[[0, -1]], t_eval=s_eval, y0=[x0],
-    args=(eps, beta, mu, phi_0, rho, u, s_history, x_history),
-    method='RK23'
-)
+def sample_and_hold(fun):
+    @functools.wraps(fun)
+    def wrapped(s):
+        i = np.array(s, dtype=int)
+        return fun(i)
 
-# plot the results
-fig, ax = plt.subplots(figsize=(5, 3), layout='tight')
-plt.plot(sol.t, sol.y[0])
-plt.xlabel('s')
-plt.ylabel('x')
-plt.title(
-    'Reservoir Dynamics without External Signal\n'
-    fr'($\beta$={beta}, $\mu$={mu}, $\Phi_0$={phi_0:.2f})'
-)
-plt.show()
+    return wrapped
+
 
 if __name__ == "__main__":
-    pass
+
+    # calculate time values based on delay time
+    tau_d = 20.87E-6  # delay time
+    Tr = 240e-9
+    eps = Tr / tau_d
+
+    # set parameter values
+    beta = 1.5  # nonlinearity gain
+    mu = 1  # feedback scaling
+    rho = 0.5  # relative weight of input information compared to feedback signal
+    phi_0 = np.pi * 0.89  # offset phase of the MZM
+
+    N = 100
+    eq = IkedaEquation(eps, beta, mu, phi_0, rho, N=N)
+    sr, data = wavfile.read('./free-spoken-digit-dataset/test.wav')
+    eq.u = data / np.max(np.abs(data))
+    s_eval = np.linspace(0, len(data), 10 * N * len(data))
+    eq.solve_ivp(0, s_eval[:10000], method='RK23')
+    fig, ax = eq.plot_solution(I=True)
+    plt.show()
+
