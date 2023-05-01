@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 
 class IkedaEquation:
-    def __init__(self, eps, beta, mu, phi_0, rho):
+    def __init__(self, eps, beta, mu, phi_0, rho, N):
         self.eps = eps
         self.beta = beta
         self.mu = mu
@@ -16,48 +16,63 @@ class IkedaEquation:
         self.rho = rho
         self.x_history = None
         self.s_history = None
-        self.u = None
+        self.u = np.array([0])
+        self.N = N
+        np.random.seed(42)
+        self.mask = 1 - 2 * np.random.randint(2, size=(N,))
         self.sol = None
 
     def derivative(self, s, x):
-        if len(self.s_history > 1):
-            prev_x = np.interp(s - 1, self.s_history, self.x_history, left=self.x_history[0], right=0.0)
-        else:
-            prev_x = self.x_history[0]
-
-        if self.u:
-            u = self.u
-        else:
-            u = lambda s: 0
+        prev_x = np.interp(s - 1, self.s_history, self.x_history, left=self.x_history[0], right=0.0)
 
         dxds = (
-            -x + self.beta * np.sin(self.mu * prev_x + self.rho * u(s - 1) + self.phi_0) ** 2
+            -x
+            + self.beta * np.sin(
+                self.mu * prev_x
+                + self.rho * self.J(s - 1)
+                + self.phi_0
+            ) ** 2
         ) / self.eps
 
         # append current state to history
-        self.x_history = np.r_[self.x_history, x[0]]
-        self.s_history = np.r_[self.s_history, s]
-
+        self.x_history = np.r_[self.x_history[1:], x[0]]
+        self.s_history = np.r_[self.s_history[1:], s]
         return dxds
 
-    def solve_ivp(self, x0, smax, nsamples=5000, method='RK45'):
-        self.s_history = np.array([0.0])
-        self.x_history = np.array([x0])
-        s_eval = np.linspace(0, smax, nsamples)
+    def I(self, s):
+        i = np.array(np.atleast_1d(s), dtype=int)
+        res = np.zeros(i.shape, dtype=np.double)
+        idx = np.logical_and(i >= 0, i < self.Q)
+        res[idx] = self.u[i[idx]]
+        return res
+
+    def J(self, s):
+        i = np.array((s % 1) * self.N, dtype=int)
+        return self.mask[i] * self.I(s)
+
+    @property
+    def Q(self):
+        return self.u.shape[0]
+
+    def solve_ivp(self, x0, s_eval, method='RK45'):
+        self.s_history = np.linspace(-1, 0, self.N)
+        self.x_history = x0 * np.ones(self.N)
         self.sol = spode.solve_ivp(
-            self.derivative, t_span=s_eval[[0, -1]], t_eval=s_eval, y0=[x0],
+            self.derivative, t_span=[0, s_eval[-1]], t_eval=s_eval, y0=[x0],
             method=method
         )
         return self.sol
 
-    def plot_solution(self, ax=None):
+    def plot_solution(self, ax=None, J=True, I=False):
         # plot the results
         if not ax:
             fig, ax = plt.subplots(figsize=(5, 3), layout='tight')
         else:
             fig = ax.gcf()
-        if self.u:
-            ax.plot(self.sol.t, self.u(self.sol.t), label='$u(s)$', color='r')
+        if I:
+            ax.plot(self.sol.t, self.I(self.sol.t), label='$I(s)$', color='r')
+        if J:
+            ax.plot(self.sol.t, self.rho * self.J(self.sol.t), label=r'$\rho J(s)$', color='g')
         ax.plot(self.sol.t, self.sol.y[0], label='$x(s)$', color='k')
         ax.set_xlabel('s')
         ax.set_title(
@@ -115,18 +130,12 @@ if __name__ == "__main__":
     rho = 0.5  # relative weight of input information compared to feedback signal
     phi_0 = np.pi * 0.89  # offset phase of the MZM
 
-    eq = IkedaEquation(eps, beta, mu, phi_0, rho)
-
-    # Solve without external signal to reach equilibrium state
-    x0 = 0
-    eq.u = None
-    sol = eq.solve_ivp(x0, 10, nsamples=2, method='RK23')
-    x0 = sol.y[0, -1]
-
-    eq.u = sample_and_hold(interpolate_audio(
-        './free-spoken-digit-dataset/test.wav',
-    ))
-    eq.solve_ivp(x0, 50, nsamples=1000, method='RK23')
-    eq.plot_solution()
+    N = 100
+    eq = IkedaEquation(eps, beta, mu, phi_0, rho, N=N)
+    sr, data = wavfile.read('./free-spoken-digit-dataset/test.wav')
+    eq.u = data / np.max(np.abs(data))
+    s_eval = np.linspace(0, len(data), 10 * N * len(data))
+    eq.solve_ivp(0, s_eval[:10000], method='RK23')
+    fig, ax = eq.plot_solution(I=True)
     plt.show()
 
