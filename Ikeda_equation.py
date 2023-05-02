@@ -34,9 +34,11 @@ class IkedaEquation:
             ) ** 2
         ) / self.eps
 
-        # append current state to history
-        self.x_history = np.r_[self.x_history[1:], x[0]]
-        self.s_history = np.r_[self.s_history[1:], s]
+        # Update history
+        self.x_history[:-1] = self.x_history[1:]
+        self.x_history[-1] = x[0]
+        self.s_history[:-1] = self.s_history[1:]
+        self.s_history[-1] = s
         return dxds
 
     def I(self, s):
