@@ -1,9 +1,6 @@
-import functools
-
 import numpy as np
 from scipy import integrate as spode
 from scipy.io import wavfile
-from scipy import interpolate as spint
 import matplotlib.pyplot as plt
 
 
@@ -86,45 +83,7 @@ class IkedaEquation:
         return fig, ax
 
 
-def u_delta(s, t_0=5):
-    return 1.0 if np.abs(s - t_0) < ds else 0.0
-
-
-def u_sin(s, omega=2*np.pi):
-    return np.sin(omega * s)
-
-
-def u_step(s, t_0=5):
-    return 1.0 if s > t_0 else 0.0
-
-
-def interpolate_audio(fname):
-    samplerate, data = wavfile.read(fname)
-    data = data / np.max(np.abs(data))
-    ndata = data.shape[0]
-    s = np.arange(0, ndata)
-    interp_obj = spint.interp1d(
-        s, data, kind='linear',
-        bounds_error=False, fill_value=0
-    )
-    return interp_obj
-
-
-def sample_and_hold(fun):
-    @functools.wraps(fun)
-    def wrapped(s):
-        i = np.array(s, dtype=int)
-        return fun(i)
-
-    return wrapped
-
-
 if __name__ == "__main__":
-
-    # calculate time values based on delay time
-    tau_d = 20.87E-6  # delay time
-    Tr = 240e-9
-    eps = Tr / tau_d
 
     # set parameter values
     beta = 0.3  # nonlinearity gain
