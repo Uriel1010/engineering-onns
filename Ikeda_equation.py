@@ -23,7 +23,7 @@ class IkedaEquation:
         self.sol = None
 
     def derivative(self, s, x):
-        prev_x = np.interp(s - 1, self.s_history, self.x_history, left=self.x_history[0], right=0.0)
+        prev_x = np.interp(s - 1, self.s_history, self.x_history)
 
         dxds = (
             -x
