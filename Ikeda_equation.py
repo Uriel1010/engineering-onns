@@ -91,7 +91,8 @@ if __name__ == "__main__":
     rho = np.pi  # relative weight of input information compared to feedback signal
     phi_0 = np.pi * 0.89  # offset phase of the MZM
 
-    N = 100
+    N = 400  # number of virtual nodes
+    eps = 5 / N  # response time
     eq = IkedaEquation(eps, beta, mu, phi_0, rho, N=N)
     sr, data = wavfile.read('./free-spoken-digit-dataset/test.wav')
     eq.u = data / np.max(np.abs(data))
