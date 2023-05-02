@@ -42,7 +42,7 @@ class IkedaEquation:
         return dxds
 
     def I(self, s):
-        i = np.array(np.atleast_1d(s), dtype=int)
+        i = np.asarray(s, dtype=int)
         res = np.zeros(i.shape, dtype=np.double)
         idx = np.logical_and(i >= 0, i < self.Q)
         res[idx] = self.u[i[idx]]
