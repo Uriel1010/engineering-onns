@@ -58,7 +58,7 @@ class IkedaEquation:
 
     def solve_ivp(self, x0, s_eval, method='RK45'):
         self.s_history = np.linspace(-1, 0, self.N)
-        self.x_history = x0 * np.ones(self.N)
+        self.x_history = np.full(self.N, x0)
         self.sol = spode.solve_ivp(
             self.derivative, t_span=[0, s_eval[-1]], t_eval=s_eval, y0=[x0],
             method=method
