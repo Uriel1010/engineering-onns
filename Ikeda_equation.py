@@ -127,9 +127,9 @@ if __name__ == "__main__":
     eps = Tr / tau_d
 
     # set parameter values
-    beta = 1.5  # nonlinearity gain
+    beta = 0.3  # nonlinearity gain
     mu = 1  # feedback scaling
-    rho = 0.5  # relative weight of input information compared to feedback signal
+    rho = np.pi  # relative weight of input information compared to feedback signal
     phi_0 = np.pi * 0.89  # offset phase of the MZM
 
     N = 100
