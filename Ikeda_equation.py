@@ -84,16 +84,15 @@ class IkedaEquation:
 
 
 if __name__ == "__main__":
-
     # set parameter values
     beta = 0.3  # nonlinearity gain
     mu = 1  # feedback scaling
     rho = np.pi  # relative weight of input information compared to feedback signal
     phi_0 = np.pi * 0.89  # offset phase of the MZM
-
     N = 400  # number of virtual nodes
     eps = 5 / N  # response time
     eq = IkedaEquation(eps, beta, mu, phi_0, rho, N=N)
+
     x0 = 0
     sol = eq.solve_ivp(x0, np.linspace(0, 100, 2), method='RK23')
     x0 = sol.y[0, -1]
