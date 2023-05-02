@@ -94,10 +94,13 @@ if __name__ == "__main__":
     N = 400  # number of virtual nodes
     eps = 5 / N  # response time
     eq = IkedaEquation(eps, beta, mu, phi_0, rho, N=N)
-    sr, data = wavfile.read('./free-spoken-digit-dataset/test.wav')
+    x0 = 0
+    sol = eq.solve_ivp(x0, np.linspace(0, 100, 2), method='RK23')
+    x0 = sol.y[0, -1]
+    sr, data = wavfile.read('tests/test.wav')
     eq.u = data / np.max(np.abs(data))
-    s_eval = np.linspace(0, len(data), 10 * N * len(data))
-    eq.solve_ivp(0, s_eval[:10000], method='RK23')
+    s_eval = np.linspace(0, len(data) / 100, N * len(data))
+    eq.solve_ivp(x0, s_eval, method='RK23')
     fig, ax = eq.plot_solution(I=True)
     plt.show()
 
