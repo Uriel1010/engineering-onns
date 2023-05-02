@@ -61,7 +61,7 @@ class IkedaEquation:
         self.x_history = np.full(self.N, x0)
         self.sol = spode.solve_ivp(
             self.derivative, t_span=[0, s_eval[-1]], t_eval=s_eval, y0=[x0],
-            method=method
+            method=method, vectorized=True
         )
         return self.sol
 
