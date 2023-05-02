@@ -82,7 +82,7 @@ class IkedaEquation:
             fr'($\epsilon$={self.eps:.2f}, $\beta$={self.beta}, $\mu$={self.mu},'
             fr' $\rho$={self.rho}, $\Phi_0$={self.phi_0:.2f})'
         )
-        ax.legend()
+        ax.legend(loc='right')
         return fig, ax
 
 
