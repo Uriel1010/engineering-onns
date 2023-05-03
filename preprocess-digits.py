@@ -58,11 +58,11 @@ def save_mfcc_to_npz(dataset_path, npz_path, num_mfcc=13, n_fft=2048, hop_length
     # save MFCCs and labels to npz file
     np.savez(npz_path, mfcc=mfcc_data, labels=labels, mapping=mapping)
 
-    def load_data(npz_path):
-        with np.load(npz_path) as data:
-            mfcc = data['mfcc']
-            labels = data['labels']
-        return mfcc, labels
+def load_data(npz_path):
+    with np.load(npz_path) as data:
+        mfcc = data['mfcc']
+        labels = data['labels']
+    return mfcc, labels
 
 if __name__ == "__main__":
     save_mfcc_to_npz(DATASET_PATH, NPZ_PATH, num_segments=10)
