@@ -32,7 +32,7 @@ def save_mfcc_to_npz(dataset_path, npz_path, num_mfcc=20, hop_length=128, n_fft=
     files = glob.glob(os.path.join(dataset_path, '*.wav'))
     for f in files:
         sample_rate, signal = wavfile.read(f)
-        labels.append(os.path.basename(f))
+        labels.append(int(os.path.basename(f)[0]))
         signals.append(signal)
         if signal.shape[0] > max_length:
             max_length = signal.shape[0]
@@ -40,8 +40,8 @@ def save_mfcc_to_npz(dataset_path, npz_path, num_mfcc=20, hop_length=128, n_fft=
             max_sample_rate = sample_rate
 
     with tqdm(total=len(files)) as pbar:
-        for signal, label in zip(signals, labels):
-            pbar.set_description(f'Processing recording {label}')
+        for f, signal in zip(files, signals):
+            pbar.set_description(f'Processing recording {os.path.basename(f)}')
             signal = np.pad(signal, (0, max_length - signal.shape[0]))
             mfcc = librosa.feature.mfcc(
                 y=signal.astype(np.double),
@@ -53,7 +53,7 @@ def save_mfcc_to_npz(dataset_path, npz_path, num_mfcc=20, hop_length=128, n_fft=
             mfcc_data.append(mfcc.T)
             pbar.update(1)
 
-    # # save MFCCs and labels to npz file
+    # save MFCCs and labels to npz file
     np.savez(npz_path, mfcc=mfcc_data, labels=labels)
 
 
