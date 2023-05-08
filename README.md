@@ -28,7 +28,7 @@ Or, if you are using Anaconda:
     $ conda install numpy scipy matplotlib tensorflow
 
 
-## Define the System
+# Define the System
 
 Define the electro-optical oscillator with delayed feedback system in terms of its equations of motion and the parameters that govern its behavior. You can use the equations provided in the paper "Dynamics of Electrooptic Bistable Devices with Delayed Feedback" by Andreas Neyer and Edgar Voges as a starting point.
 
