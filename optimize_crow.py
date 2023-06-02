@@ -5,11 +5,11 @@ from matplotlib import pyplot as plt
 from crow import CROW
 
 
-def mse(params, tau, freq, neff):
+def mse(params, tau, freq, f0, neff):
     kappa_wg = 1j * params[-1]
     params = params[:-1]
     R, kappa = np.array_split(params, 2)
-    tf_ideal = np.exp(2j * np.pi * freq * tau)
+    tf_ideal = np.exp(2j * np.pi * (freq - f0) * tau)
     crow = CROW(R, 1j * kappa, neff, kappa_wg=kappa_wg, c=scipy.constants.c)
     tf_crow = crow.tf_drop(freq)
     return np.mean(np.abs(tf_ideal - tf_crow) ** 2)
@@ -21,14 +21,14 @@ if __name__ == '__main__':
     wl0 = 1.55e-6
     R = 60e-6
     f0 = scipy.constants.c / wl0
-    df = 10e9
-    freq = np.linspace(f0 - df, f0 + df, 100)
-    tau = 1e-12
-    R_init = [60e-6, 60e-6]
-    imkappa_init = 0.1
+    df = 1e9
+    freq = np.linspace(f0 - df, f0 + df, 500)
+    tau = 1e-9
+    R_init = [60e-6, 60e-6, 60e-6]
+    imkappa_init = [0.1, 0.1]
     x0 = np.r_[R_init, imkappa_init, imkappa_init]
     res = spopt.minimize(
-        mse, x0, args=(tau, freq, neff),
+        mse, x0, args=(tau, freq, f0, neff),
         method='nelder-mead',
         options=dict(xatol=1e-8, maxfev=5000)
     )
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     )
     fig.suptitle = 'Transfer Function'
     delta_f_GHz = (freq - f0) / 1e9
-    tf_ideal = np.exp(2j * np.pi * freq * tau)
+    tf_ideal = np.exp(2j * np.pi * (freq - f0) * tau)
     for tf, label in zip([tf_ideal, tf_crow], ['Ideal', 'CROW']):
         ax[0].plot(delta_f_GHz, np.abs(tf))
         phase = np.angle(tf)

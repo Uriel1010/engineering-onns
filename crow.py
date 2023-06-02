@@ -82,23 +82,28 @@ if __name__ == "__main__":
     R = 60e-6
     c = speed_of_light
     f0 = c / wl0
-    df = 10e9
-    freqs = np.linspace(f0 - df, f0 + df, 1000)
+    df = 300e9
+    freq = np.linspace(f0 - df, f0 + df, 1000)
     crow = CROW(R, kappa, neff, N=1, c=c)
-    TF_drop = np.asarray([crow.tf_drop(f) for f in freqs])
     tau_D = 100e-12
-    TF_ideal = np.exp(2j * np.pi * (freqs - f0) * tau_D)
+
     fig, ax = plt.subplots(
-        dpi=200, figsize=(4, 3),
+        1, 2,
+        dpi=200, figsize=(6, 3),
         layout='tight'
     )
-    delta_f_GHz = (freqs - f0) / 1e9
-    ax.plot(delta_f_GHz, np.abs(TF_drop), label='Transmittivity')
-    # ax.plot(delta_f_GHz, np.unwrap(np.angle(TF_ideal)), label='Ideal delay')
-    phase = np.angle(TF_drop)
-    ax.plot(delta_f_GHz, np.unwrap(phase), label='Phase')
-    ax.legend()
-    ax.set_xlabel(r"$f-f_0$ [GHz]")
-    ax.grid(True)
-    ax.set_title('Phase')
+    fig.suptitle = 'Transfer Function'
+    delta_f_GHz = (freq - f0) / 1e9
+    tf_crow = crow.tf_drop(freq)
+    tf_ideal = np.exp(2j * np.pi * (freq - f0) * tau_D)
+    for tf, label in zip([tf_ideal, tf_crow], ['Ideal', 'CROW']):
+        ax[0].plot(delta_f_GHz, np.abs(tf))
+        phase = np.angle(tf)
+        ax[1].plot(delta_f_GHz, np.unwrap(phase), label=label)
+    ax[0].set_title('Magnitude')
+    ax[1].set_title('Phase')
+    for _ in ax:
+        _.set_xlabel(r"$f-f_0$ [GHz]")
+        _.grid(True)
+    ax[-1].legend()
     plt.show()
